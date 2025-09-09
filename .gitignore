@@ -1,0 +1,22 @@
+# .NET / Visual Studio
+**/bin/
+**/obj/
+.vs/
+*.user
+
+# Azure Functions local settings (contains secrets)
+**/local.settings.json
+
+# Node / Angular
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/.env
+
+# OS / Misc
+.DS_Store
+Thumbs.db
+*.log
+
+# Python venv (if any)
+**/.venv/
