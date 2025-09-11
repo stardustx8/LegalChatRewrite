@@ -80,7 +80,8 @@ public class CleanupIndex
             if (isoCode == "ALL")
             {
                 _logger.LogInformation("Processing cleanup for ALL documents");
-                var results = client.Search<Dictionary<string, object>>("*", new SearchOptions { Select = { "id", "iso_code" } });
+                var response = client.Search<Dictionary<string, object>>("*", new SearchOptions { Select = { "id", "iso_code" } });
+                var results = response.Value;
                 docsToDelete = results.GetResults().Select(r => new Dictionary<string, string> { ["id"] = r.Document["id"].ToString()! }).ToList();
                 cleanupType = "all documents";
             }
@@ -93,7 +94,8 @@ public class CleanupIndex
                 _logger.LogInformation("Searching for documents with iso_code: {iso}", isoCode);
                 var options = new SearchOptions { Filter = $"iso_code eq '{isoCode}'" };
                 options.Select.Add("id");
-                var results = client.Search<Dictionary<string, object>>("*", options);
+                var response = client.Search<Dictionary<string, object>>("*", options);
+                var results = response.Value;
                 docsToDelete = results.GetResults().Select(r => new Dictionary<string, string> { ["id"] = r.Document["id"].ToString()! }).ToList();
                 cleanupType = $"documents for {isoCode}";
             }

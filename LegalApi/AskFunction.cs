@@ -267,6 +267,29 @@ public class AskFunction
         return (long)(elapsed * 1000);
     }
 
+    private static Dictionary<string, string> ParseQuery(Uri url)
+    {
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var q = url?.Query;
+        if (string.IsNullOrEmpty(q)) return dict;
+        var trimmed = q[0] == '?' ? q.Substring(1) : q;
+        foreach (var part in trimmed.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var idx = part.IndexOf('=');
+            if (idx >= 0)
+            {
+                var key = Uri.UnescapeDataString(part.Substring(0, idx));
+                var val = Uri.UnescapeDataString(part.Substring(idx + 1));
+                dict[key] = val;
+            }
+            else
+            {
+                dict[Uri.UnescapeDataString(part)] = string.Empty;
+            }
+        }
+        return dict;
+    }
+
     private record SearchChunk(string id, string iso_code, string chunk);
 
     private static async Task<List<SearchChunk>> RetrieveAsync(string query, List<string> isoCodes, Dictionary<string, string> cfg, int k)
@@ -486,7 +509,7 @@ public class AskFunction
         req.Headers.Add("api-key", cfg["openai_key"]);
 
         var t = Stopwatch.GetTimestamp();
-        var (res, content) = await RetryPipeline.ExecuteAsync(async innerCt =>
+        var (res, content) = await WithRetryAsync(async innerCt =>
         {
             using var response = await Http.SendAsync(req, innerCt);
             response.EnsureSuccessStatusCode();
@@ -553,7 +576,8 @@ public class AskFunction
         public CountryDetection country_detection { get; set; } = new();
     }
 
-    private const string COUNTRY_DETECTION_PROMPT = @"ROLE
+    private const string COUNTRY_DETECTION_PROMPT = """
+ROLE
 You are a specialized assistant whose sole task is to extract country references from user text.
 
 SCOPE OF EXTRACTION
@@ -593,16 +617,17 @@ FORMATTING RULES
     ```json
     [
       {"detected_phrase": "<exact text>", "code": "XX"},
-      … 
+      …
     ]
     ```
 
 •  Preserve the original casing from the input text in "detected_phrase".
 •  The "detected_phrase" itself: if its length is 4 characters or less, it MUST be a valid ISO 3166-1 alpha-2 code AND it MUST have appeared in ALL UPPERCASE in the original user text. For example, if the user types "us", do not extract it; if the user types "US", extract it as {"detected_phrase": "US", "code": "US"}. Common lowercase words like "in", "it", "am", "is", "to", "der", "mit" (even if their uppercase versions are valid ISO codes like "IN", "IT", "AM", "IS", "TO", "DE") must not be extracted if they appeared lowercase in the input and are being used as common words.
 •  If nothing is found, return `[]`.
-";
+""";
 
-    private const string DRAFTER_SYSTEM_MESSAGE = @"<role>
+    private const string DRAFTER_SYSTEM_MESSAGE = """
+<role>
 You are a jurisdiction‑aware legal drafting agent in a RAG pipeline. Your ONLY knowledge source is the available legal sources supplied to you. Never use outside facts or prior‑turn memory. Do not ask the user clarifying questions—draft strictly from the available legal sources.
 </role>
 
@@ -707,5 +732,5 @@ Before returning, ensure:
 - Single‑jurisdiction: no per‑bullet country prefixes; Multi‑jurisdiction: nested grouping by name.
 - Every numeric value, measurement, operator rule, and 'stricter rules allowed/forbidden' statement is source‑backed or omitted.
 </validation_checklist>
-";
+""";
 }

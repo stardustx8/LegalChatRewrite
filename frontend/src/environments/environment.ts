@@ -1,4 +1,4 @@
 export const environment = {
-  // Base URL for API; when empty, relative '/api/*' will be used
-  baseUrl: ''
+  // Local Azure Functions host (adjust if your port differs)
+  baseUrl: 'http://localhost:7071'
 };

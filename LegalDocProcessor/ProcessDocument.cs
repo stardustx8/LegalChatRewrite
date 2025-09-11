@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Azure;
 using Azure.Search.Documents;
+using Azure.Search.Documents.Models;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using DocumentFormat.OpenXml.Packaging;
@@ -58,18 +59,18 @@ public class ProcessDocument
     ] Stream myBlob, string name)
     {
         _logger.LogInformation("Python blob trigger function processed blob");
-        _logger.LogInformation("Name: {name}", name);
-        _logger.LogInformation("Size: {size} Bytes", myBlob.Length);
+        _logger.LogInformation($"Name: {name}");
+        _logger.LogInformation($"Size: {myBlob.Length} Bytes");
 
         // Validate filename pattern XX.docx
         var match = Regex.Match(name, "^([A-Z]{2})\\.docx$");
         if (!match.Success)
         {
-            _logger.LogError("Invalid filename format: {filename}. Expected 'XX.docx' where XX is a 2-letter ISO code.", name);
+            _logger.LogError($"Invalid filename format: {name}. Expected 'XX.docx' where XX is a 2-letter ISO code.");
             return;
         }
         var isoCode = match.Groups[1].Value;
-        _logger.LogInformation("Processing document for ISO code: {iso}", isoCode);
+        _logger.LogInformation($"Processing document for ISO code: {isoCode}");
 
         // Caption/OCR enabled when chat deploy set
         var enableCaptioning = true;
@@ -94,7 +95,7 @@ public class ProcessDocument
         if (string.IsNullOrWhiteSpace(embedDeploy)) missing.Add("OPENAI_EMBED_DEPLOY");
         if (missing.Count > 0)
         {
-            _logger.LogError("Missing required environment variables: {vars}", string.Join(", ", missing));
+            _logger.LogError($"Missing required environment variables: {string.Join(", ", missing)}");
             return;
         }
 
@@ -126,7 +127,7 @@ public class ProcessDocument
             var elements = ExtractElements(bytes);
             if (elements.Count == 0)
             {
-                _logger.LogWarning("No content extracted from {name}", name);
+                _logger.LogWarning($"No content extracted from {name}");
                 return;
             }
 
@@ -137,7 +138,7 @@ public class ProcessDocument
             // Vision captions + OCR
             if (!string.IsNullOrWhiteSpace(openaiChatUrl) && imageElements.Count > 0)
             {
-                _logger.LogInformation("Processing {count} images", imageElements.Count);
+                _logger.LogInformation($"Processing {imageElements.Count} images");
                 var enriched = await GenerateCaptionsAsync(imageElements, openaiChatUrl!, openaiKey!);
 
                 // Upload images
@@ -236,16 +237,17 @@ public class ProcessDocument
             }
 
             // Delete existing docs for iso
-            _logger.LogInformation("Deleting existing documents for ISO code: {iso}", isoCode);
-            var results = searchClient.Search<Dictionary<string, object>>("*", new Azure.Search.Documents.Models.SearchOptions
+            _logger.LogInformation($"Deleting existing documents for ISO code: {isoCode}");
+            var response = searchClient.Search<Dictionary<string, object>>("*", new SearchOptions
             {
                 Filter = $"iso_code eq '{isoCode}'",
                 Select = { "id" }
             });
+            var results = response.Value;
             var toDelete = results.GetResults().Select(r => new Dictionary<string, string> { ["id"] = r.Document["id"].ToString()! }).ToList();
             if (toDelete.Count > 0)
             {
-                _logger.LogInformation("Deleting {count} existing documents", toDelete.Count);
+                _logger.LogInformation($"Deleting {toDelete.Count} existing documents");
                 await searchClient.DeleteDocumentsAsync(toDelete);
             }
 
@@ -271,18 +273,18 @@ public class ProcessDocument
 
             if (documents.Count > 0)
             {
-                _logger.LogInformation("Uploading {count} new documents to the search index", documents.Count);
+                _logger.LogInformation($"Uploading {documents.Count} new documents to the search index");
                 var upload = await searchClient.UploadDocumentsAsync(documents);
                 var succeeded = upload.Value.Results.Count(r => r.Succeeded);
-                _logger.LogInformation("Successfully uploaded {s}/{t} documents", succeeded, documents.Count);
+                _logger.LogInformation($"Successfully uploaded {succeeded}/{documents.Count} documents");
                 if (succeeded < documents.Count)
                 {
                     var failed = upload.Value.Results.Where(r => !r.Succeeded).ToList();
-                    _logger.LogError("Failed uploads: {count}", failed.Count);
+                    _logger.LogError($"Failed uploads: {failed.Count}");
                 }
             }
 
-            _logger.LogInformation("Document processing completed for {file}", name);
+            _logger.LogInformation($"Document processing completed for {name}");
         }
         catch (Exception ex)
         {
@@ -525,7 +527,7 @@ public class ProcessDocument
                     Caption = e.Content,
                     OcrText = string.Empty
                 });
-                _logger.LogWarning(ex, "Caption/OCR failed for {file}", e.Metadata.GetValueOrDefault("filename"));
+                Console.WriteLine($"Caption/OCR failed for {e.Metadata.GetValueOrDefault("filename")}: {ex.Message}");
             }
         }
         return results;
