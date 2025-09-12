@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # set this to the path to your web app project, defaults to the repository root
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: 'LegalApi'
   DOTNET_VERSION: '8.0.x' # set this to the dotnet version to use
 
 jobs:
@@ -20,6 +20,25 @@ jobs:
     steps:
       - name: 'Checkout GitHub Action'
         uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Build Angular
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build || npx ng build --configuration production
+      
+      - name: Copy Angular dist into Functions wwwroot/app
+        shell: pwsh
+        run: |
+          if (Test-Path "LegalApi/wwwroot/app") { Remove-Item -Recurse -Force "LegalApi/wwwroot/app" }
+          New-Item -ItemType Directory -Force -Path "LegalApi/wwwroot/app" | Out-Null
+          $dist = Get-ChildItem -Path frontend/dist -Recurse -Directory | Select-Object -First 1
+          Copy-Item -Recurse -Force -Path "$($dist.FullName)/*" -Destination "LegalApi/wwwroot/app"
 
       - name: Setup DotNet ${{ env.DOTNET_VERSION }} Environment
         uses: actions/setup-dotnet@v1
@@ -40,4 +59,5 @@ jobs:
           app-name: 'fct-euw-legalcb-legalapi-prod'
           slot-name: 'Production'
           package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
+
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_CD6F38929794479DA563E4FD20A648B0 }}
