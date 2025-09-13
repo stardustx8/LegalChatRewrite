@@ -104,7 +104,14 @@ public class AskFunction
             config["index_name"] = Environment.GetEnvironmentVariable("KNIFE_SEARCH_INDEX") ?? "knife-index";
             config["deploy_chat"] = Environment.GetEnvironmentVariable("OPENAI_CHAT_DEPLOY") ?? "gpt-5-chat";
             config["deploy_embed"] = Environment.GetEnvironmentVariable("OPENAI_EMBED_DEPLOY") ?? "text-embedding-3-large";
-            config["api_version"] = Environment.GetEnvironmentVariable("OPENAI_API_VERSION") ?? "2024-12-01-preview";
+            // Allow separate API versions per operation; fall back to OPENAI_API_VERSION for compatibility
+            var unifiedVersion = Environment.GetEnvironmentVariable("OPENAI_API_VERSION");
+            config["api_version_chat"] = Environment.GetEnvironmentVariable("OPENAI_CHAT_API_VERSION")
+                                            ?? unifiedVersion
+                                            ?? "2024-12-01-preview";
+            config["api_version_embed"] = Environment.GetEnvironmentVariable("OPENAI_EMBED_API_VERSION")
+                                            ?? unifiedVersion
+                                            ?? "2023-05-15"; // embeddings often require older stable versions
         }
         catch (Exception ex)
         {
@@ -448,7 +455,7 @@ public class AskFunction
                 },
                 temperature = 0.0
             };
-            var apiVersion = cfg["api_version"];
+            var apiVersion = cfg["api_version_chat"];
             var url = $"{cfg["openai_endpoint"]}/openai/deployments/{cfg["deploy_chat"]}/chat/completions?api-version={apiVersion}";
             var req = new HttpRequestMessage(HttpMethod.Post, url)
             {
@@ -501,7 +508,7 @@ public class AskFunction
         Console.WriteLine($"DEBUG: Embedding request - deploy='{cfg["deploy_embed"]}', api_version='{cfg["api_version"]}', endpoint='{cfg["openai_endpoint"]}'");
 
         var payload = new { input = text };
-        var url = $"{cfg["openai_endpoint"]}/openai/deployments/{cfg["deploy_embed"]}/embeddings?api-version={cfg["api_version"]}";
+        var url = $"{cfg["openai_endpoint"]}/openai/deployments/{cfg["deploy_embed"]}/embeddings?api-version={cfg["api_version_embed"]}";
         var req = new HttpRequestMessage(HttpMethod.Post, url)
         {
             Content = new StringContent(JsonSerializer.Serialize(payload, JsonOptions), Encoding.UTF8, "application/json")
@@ -537,7 +544,7 @@ public class AskFunction
             },
             temperature = 0.0
         };
-        var url = $"{cfg["openai_endpoint"]}/openai/deployments/{cfg["deploy_chat"]}/chat/completions?api-version={cfg["api_version"]}";
+        var url = $"{cfg["openai_endpoint"]}/openai/deployments/{cfg["deploy_chat"]}/chat/completions?api-version={cfg["api_version_chat"]}";
         var req = new HttpRequestMessage(HttpMethod.Post, url)
         {
             Content = new StringContent(JsonSerializer.Serialize(payload, JsonOptions), Encoding.UTF8, "application/json")
