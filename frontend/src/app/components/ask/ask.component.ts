@@ -82,7 +82,8 @@ export class AskComponent {
   renderMarkdown(md: string): string {
     try {
       const raw = marked.parse(md) as string;
-      return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } } as any);
+      // DOMPurify types may declare TrustedHTML depending on config; we need a string for innerHTML content we wrap via DomSanitizer
+      return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } } as any) as unknown as string;
     } catch {
       return md.replace(/\n/g, '<br/>');
     }
