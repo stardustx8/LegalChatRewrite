@@ -28,24 +28,33 @@ jobs:
         with:
           node-version: '20'
       
-      - name: Build Angular
+      - name: Install frontend dependencies
         working-directory: frontend
+        run: npm install
+      
+      - name: Build Angular (script or CLI)
+        working-directory: frontend
+        shell: pwsh
         run: |
-          npm ci
-          npm run build || npx ng build --configuration production
+          # Try package.json script first; if missing, fall back to CLI
+          try { npm run build } catch { npx @angular/cli@18 build --configuration production }
       
       - name: Copy Angular dist into Functions wwwroot/app
         shell: pwsh
         run: |
           if (Test-Path "LegalApi/wwwroot/app") { Remove-Item -Recurse -Force "LegalApi/wwwroot/app" }
           New-Item -ItemType Directory -Force -Path "LegalApi/wwwroot/app" | Out-Null
-          $dist = Get-ChildItem -Path frontend/dist -Recurse -Directory | Select-Object -First 1
-          Copy-Item -Recurse -Force -Path "$($dist.FullName)/*" -Destination "LegalApi/wwwroot/app"
-
-      - name: Setup DotNet ${{ env.DOTNET_VERSION }} Environment
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          # Try common Angular 17/18 output locations
+          $distRoot = Resolve-Path "frontend/dist"
+          $candidate = Get-ChildItem -Path $distRoot -Recurse -Directory | Where-Object {
+            $_.Name -in @('browser','ssr') -or Test-Path (Join-Path $_.FullName 'index.html')
+          } | Select-Object -First 1
+          if (-not $candidate) { $candidate = (Get-ChildItem -Path $distRoot -Directory | Select-Object -First 1) }
+          Copy-Item -Recurse -Force -Path "$($candidate.FullName)/*" -Destination "LegalApi/wwwroot/app"
+            - name: Setup DotNet ${{ env.DOTNET_VERSION }} Environment
+              uses: actions/setup-dotnet@v4
+              with:
+                dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: 'Publish Function App'
         shell: pwsh
@@ -67,6 +76,7 @@ jobs:
           package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/publish_output'
 
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_CD6F38929794479DA563E4FD20A648B0 }}
+
 
 
 
