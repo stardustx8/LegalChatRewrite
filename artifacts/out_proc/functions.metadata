@@ -1,0 +1,77 @@
+[
+  {
+    "name": "CleanupIndex",
+    "scriptFile": "LegalDocProcessor.dll",
+    "entryPoint": "LegalDocProcessor.CleanupIndex.Run",
+    "language": "dotnet-isolated",
+    "properties": {
+      "IsCodeless": false
+    },
+    "bindings": [
+      {
+        "name": "req",
+        "direction": "In",
+        "type": "httpTrigger",
+        "authLevel": "Anonymous",
+        "methods": [
+          "post"
+        ],
+        "route": "cleanup_index",
+        "properties": {}
+      },
+      {
+        "name": "$return",
+        "type": "http",
+        "direction": "Out"
+      }
+    ]
+  },
+  {
+    "name": "ProcessDocument",
+    "scriptFile": "LegalDocProcessor.dll",
+    "entryPoint": "LegalDocProcessor.ProcessDocument.Run",
+    "language": "dotnet-isolated",
+    "properties": {
+      "IsCodeless": false
+    },
+    "bindings": [
+      {
+        "name": "myBlob",
+        "direction": "In",
+        "type": "blobTrigger",
+        "path": "legaldocsrag/{name}",
+        "connection": "KNIFE_STORAGE_CONNECTION_STRING",
+        "properties": {
+          "supportsDeferredBinding": "True"
+        }
+      }
+    ]
+  },
+  {
+    "name": "UploadBlob",
+    "scriptFile": "LegalDocProcessor.dll",
+    "entryPoint": "LegalDocProcessor.UploadBlob.Run",
+    "language": "dotnet-isolated",
+    "properties": {
+      "IsCodeless": false
+    },
+    "bindings": [
+      {
+        "name": "req",
+        "direction": "In",
+        "type": "httpTrigger",
+        "authLevel": "Anonymous",
+        "methods": [
+          "post"
+        ],
+        "route": "upload_blob",
+        "properties": {}
+      },
+      {
+        "name": "$return",
+        "type": "http",
+        "direction": "Out"
+      }
+    ]
+  }
+]
