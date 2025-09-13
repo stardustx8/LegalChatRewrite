@@ -73,6 +73,89 @@ public class AskFunction
             return ping;
         }
 
+        // Lightweight diagnostics without App Insights: /api/ask?diag=1
+        if (query.TryGetValue("diag", out var _))
+        {
+            // Load minimal config first so we can test external dependencies
+            Dictionary<string, string> cfg;
+            try
+            {
+                cfg = new()
+                {
+                    ["search_endpoint"] = Environment.GetEnvironmentVariable("KNIFE_SEARCH_ENDPOINT")!,
+                    ["search_key"] = Environment.GetEnvironmentVariable("KNIFE_SEARCH_KEY")!,
+                    ["openai_endpoint"] = Environment.GetEnvironmentVariable("KNIFE_OPENAI_ENDPOINT")!,
+                    ["openai_key"] = Environment.GetEnvironmentVariable("KNIFE_OPENAI_KEY")!,
+                };
+                cfg["index_name"] = Environment.GetEnvironmentVariable("KNIFE_SEARCH_INDEX") ?? "knife-index";
+                cfg["deploy_chat"] = Environment.GetEnvironmentVariable("OPENAI_CHAT_DEPLOY") ?? "gpt-5-chat";
+                cfg["deploy_embed"] = Environment.GetEnvironmentVariable("OPENAI_EMBED_DEPLOY") ?? "text-embedding-3-large";
+                var unifiedVersion = Environment.GetEnvironmentVariable("OPENAI_API_VERSION");
+                cfg["api_version_chat"] = Environment.GetEnvironmentVariable("OPENAI_CHAT_API_VERSION") ?? unifiedVersion ?? "2024-12-01-preview";
+                cfg["api_version_embed"] = Environment.GetEnvironmentVariable("OPENAI_EMBED_API_VERSION") ?? unifiedVersion ?? "2023-05-15";
+            }
+            catch (Exception ex)
+            {
+                var bad = req.CreateResponse(HttpStatusCode.InternalServerError);
+                await bad.WriteStringAsync($"diag_config_error: {ex.Message}");
+                return bad;
+            }
+
+            var result = new Dictionary<string, object?>();
+
+            // Test chat
+            try
+            {
+                var payload = new
+                {
+                    messages = new object[]
+                    {
+                        new { role = "system", content = "You are a ping." },
+                        new { role = "user", content = "Return the string PONG." }
+                    }
+                };
+                var url = $"{cfg["openai_endpoint"]}/openai/deployments/{cfg["deploy_chat"]}/chat/completions?api-version={cfg["api_version_chat"]}";
+                using var msg = new HttpRequestMessage(HttpMethod.Post, url)
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(payload, JsonOptions), Encoding.UTF8, "application/json")
+                };
+                msg.Headers.Add("api-key", cfg["openai_key"]);
+                using var res = await Http.SendAsync(msg);
+                var body = await res.Content.ReadAsStringAsync();
+                result["chat_status"] = (int)res.StatusCode;
+                result["chat_body"] = body;
+            }
+            catch (Exception ex)
+            {
+                result["chat_error"] = ex.Message;
+            }
+
+            // Test embeddings
+            try
+            {
+                var payload = new { input = "ping" };
+                var url = $"{cfg["openai_endpoint"]}/openai/deployments/{cfg["deploy_embed"]}/embeddings?api-version={cfg["api_version_embed"]}";
+                using var msg = new HttpRequestMessage(HttpMethod.Post, url)
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(payload, JsonOptions), Encoding.UTF8, "application/json")
+                };
+                msg.Headers.Add("api-key", cfg["openai_key"]);
+                using var res = await Http.SendAsync(msg);
+                var body = await res.Content.ReadAsStringAsync();
+                result["embed_status"] = (int)res.StatusCode;
+                result["embed_body"] = body;
+            }
+            catch (Exception ex)
+            {
+                result["embed_error"] = ex.Message;
+            }
+
+            var diag = req.CreateResponse(HttpStatusCode.OK);
+            diag.Headers.Add("Content-Type", "application/json");
+            await diag.WriteStringAsync(JsonSerializer.Serialize(result, JsonOptions));
+            return diag;
+        }
+
         // Load environment
         Dictionary<string, string> config;
         try
@@ -184,7 +267,16 @@ public class AskFunction
             _logger.LogInformation("DEBUG: Using dynamic k={k} for {n} countries: {iso}", retrievalK, isoCodes.Count, string.Join(",", isoCodes));
             _logger.LogInformation("DEBUG: Multi-jurisdictional query detected: {multi}", isoCodes.Count > 1);
             var tRetrieve = Stopwatch.GetTimestamp();
-            var chunks = await RetrieveAsync(question!, isoCodes, config, retrievalK);
+            List<SearchChunk> chunks;
+            try
+            {
+                chunks = await RetrieveAsync(question!, isoCodes, config, retrievalK);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DEBUG: Retrieval failed — returning no-docs response. Check KNIFE_SEARCH_* settings and index existance.");
+                chunks = new List<SearchChunk>();
+            }
             var retrieveMs = ElapsedMs(tRetrieve);
             _logger.LogInformation("TIMING: retrieve_total_ms={ms}", retrieveMs);
             _logger.LogInformation("DEBUG: Retrieved {count} chunks", chunks.Count);
@@ -505,7 +597,7 @@ public class AskFunction
     private static async Task<List<float>> GenerateEmbeddingAsync(string text, Dictionary<string, string> cfg, CancellationToken ct)
     {
         // Diagnostics
-        Console.WriteLine($"DEBUG: Embedding request - deploy='{cfg["deploy_embed"]}', api_version='{cfg["api_version"]}', endpoint='{cfg["openai_endpoint"]}'");
+        Console.WriteLine($"DEBUG: Embedding request - deploy='{cfg["deploy_embed"]}', api_version='{cfg["api_version_embed"]}', endpoint='{cfg["openai_endpoint"]}'");
 
         var payload = new { input = text };
         var url = $"{cfg["openai_endpoint"]}/openai/deployments/{cfg["deploy_embed"]}/embeddings?api-version={cfg["api_version_embed"]}";
