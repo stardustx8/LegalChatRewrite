@@ -44,7 +44,7 @@ jobs:
         run: |
           if (Test-Path "LegalApi/wwwroot/app") { Remove-Item -Recurse -Force "LegalApi/wwwroot/app" }
           New-Item -ItemType Directory -Force -Path "LegalApi/wwwroot/app" | Out-Null
-      
+
           # Find the built app by locating index.html under frontend/dist
           $index = Get-ChildItem -Path "frontend/dist" -Recurse -Filter "index.html" | Select-Object -First 1
           if (-not $index) {
@@ -54,7 +54,45 @@ jobs:
           $src = $index.Directory.FullName
           Write-Host "Copying from $src"
           Copy-Item -Recurse -Force -Path (Join-Path $src '*') -Destination "LegalApi/wwwroot/app"
-      
+
+      - name: Ensure web.config for /app (SPA default + fallback)
+        shell: pwsh
+        run: |
+          $webConfig = @'
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <system.webServer>
+              <defaultDocument>
+                <files>
+                  <add value="index.html" />
+                </files>
+              </defaultDocument>
+              <rewrite>
+                <rules>
+                  <rule name="SPA Fallback to /app/index.html" stopProcessing="true">
+                    <match url=".*" />
+                    <conditions logicalGrouping="MatchAll">
+                      <add input="{REQUEST_URI}" pattern="^/api/.*" negate="true" />
+                      <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
+                      <add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true" />
+                    </conditions>
+                    <action type="Rewrite" url="/app/index.html" />
+                  </rule>
+                </rules>
+              </rewrite>
+              <staticContent>
+                <mimeMap fileExtension=".json" mimeType="application/json" />
+              </staticContent>
+            </system.webServer>
+          </configuration>
+          '@
+          Set-Content -LiteralPath "LegalApi/wwwroot/app/web.config" -Value $webConfig -Encoding UTF8
+
+      - name: List app folder (verify index.html present)
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse -Force 'LegalApi/wwwroot/app' | Select-Object FullName
+
       - name: Setup DotNet ${{ env.DOTNET_VERSION }} Environment
         uses: actions/setup-dotnet@v4
         with:
