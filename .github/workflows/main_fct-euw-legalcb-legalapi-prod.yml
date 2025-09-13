@@ -55,6 +55,17 @@ jobs:
           Write-Host "Copying from $src"
           Copy-Item -Recurse -Force -Path (Join-Path $src '*') -Destination "LegalApi/wwwroot/app"
 
+      - name: Patch base href to /app/
+        shell: pwsh
+        run: |
+          $ix = "LegalApi/wwwroot/app/index.html"
+          if (-not (Test-Path $ix)) { Write-Error "index.html not found at $ix"; exit 1 }
+          $html = Get-Content -LiteralPath $ix -Raw
+          # Replace common base href variants with /app/
+          $html = $html -replace '<base\s+href="/"\s*/?>','<base href="/app/" />'
+          $html = $html -replace '<base\s+href="./"\s*/?>','<base href="/app/" />'
+          Set-Content -LiteralPath $ix -Value $html -Encoding UTF8
+
       - name: Ensure web.config for /app (SPA default + fallback)
         shell: pwsh
         run: |
@@ -87,6 +98,37 @@ jobs:
           </configuration>
           '@
           Set-Content -LiteralPath "LegalApi/wwwroot/app/web.config" -Value $webConfig -Encoding UTF8
+
+      - name: Ensure root web.config (redirect root and SPA fallback to /app/index.html)
+        shell: pwsh
+        run: |
+          $rootWeb = @'
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <system.webServer>
+              <rewrite>
+                <rules>
+                  <!-- Serve SPA when hitting site root -->
+                  <rule name="RootToAppIndex" stopProcessing="true">
+                    <match url="^$" />
+                    <action type="Rewrite" url="/app/index.html" />
+                  </rule>
+                  <!-- Fallback all non-API, non-existing paths to SPA -->
+                  <rule name="GlobalSPAFallback" stopProcessing="true">
+                    <match url=".*" />
+                    <conditions logicalGrouping="MatchAll">
+                      <add input="{REQUEST_URI}" pattern="^/api/.*" negate="true" />
+                      <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
+                      <add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true" />
+                    </conditions>
+                    <action type="Rewrite" url="/app/index.html" />
+                  </rule>
+                </rules>
+              </rewrite>
+            </system.webServer>
+          </configuration>
+          '@
+          Set-Content -LiteralPath "LegalApi/wwwroot/web.config" -Value $rootWeb -Encoding UTF8
 
       - name: List app folder (verify index.html present)
         shell: pwsh
