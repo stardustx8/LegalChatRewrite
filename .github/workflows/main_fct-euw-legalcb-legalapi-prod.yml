@@ -44,13 +44,16 @@ jobs:
         run: |
           if (Test-Path "LegalApi/wwwroot/app") { Remove-Item -Recurse -Force "LegalApi/wwwroot/app" }
           New-Item -ItemType Directory -Force -Path "LegalApi/wwwroot/app" | Out-Null
-          # Try common Angular 17/18 output locations
-          $distRoot = Resolve-Path "frontend/dist"
-          $candidate = Get-ChildItem -Path $distRoot -Recurse -Directory | Where-Object {
-            $_.Name -in @('browser','ssr') -or Test-Path (Join-Path $_.FullName 'index.html')
-          } | Select-Object -First 1
-          if (-not $candidate) { $candidate = (Get-ChildItem -Path $distRoot -Directory | Select-Object -First 1) }
-          Copy-Item -Recurse -Force -Path "$($candidate.FullName)/*" -Destination "LegalApi/wwwroot/app"
+      
+          # Find the built app by locating index.html under frontend/dist
+          $index = Get-ChildItem -Path "frontend/dist" -Recurse -Filter "index.html" | Select-Object -First 1
+          if (-not $index) {
+            Write-Error "Angular build output not found (no index.html under frontend/dist)"
+            exit 1
+          }
+          $src = $index.Directory.FullName
+          Write-Host "Copying from $src"
+          Copy-Item -Recurse -Force -Path (Join-Path $src '*') -Destination "LegalApi/wwwroot/app"
       
       - name: Setup DotNet ${{ env.DOTNET_VERSION }} Environment
         uses: actions/setup-dotnet@v4
@@ -77,6 +80,7 @@ jobs:
           package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/publish_output'
 
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_CD6F38929794479DA563E4FD20A648B0 }}
+
 
 
 
