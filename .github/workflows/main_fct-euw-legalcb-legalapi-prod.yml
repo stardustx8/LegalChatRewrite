@@ -147,6 +147,16 @@ jobs:
           dotnet publish --configuration Release --output ./publish_output
           popd
 
+      - name: Copy UI into publish_output/wwwroot/app
+        shell: pwsh
+        run: |
+          $src = "${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/wwwroot/app"
+          $dst = "${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/publish_output/wwwroot/app"
+          if (-not (Test-Path $src)) { Write-Error "Source UI folder not found: $src"; exit 1 }
+          if (Test-Path $dst) { Remove-Item -Recurse -Force $dst }
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
+          Copy-Item -Recurse -Force -Path (Join-Path $src '*') -Destination $dst
+
       - name: List publish_output
         shell: pwsh
         run: Get-ChildItem -Recurse -Force '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/publish_output' | Select-Object FullName
