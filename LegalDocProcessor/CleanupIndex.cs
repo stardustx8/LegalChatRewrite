@@ -34,6 +34,7 @@ public class CleanupIndex
         [JsonPropertyName("failed_count")] public int failed_count { get; set; }
         [JsonPropertyName("iso_code")] public string iso_code { get; set; } = string.Empty;
         [JsonPropertyName("blobs_deleted")] public int blobs_deleted { get; set; }
+        [JsonPropertyName("images_deleted")] public int images_deleted { get; set; }
         [JsonPropertyName("receipts_deleted")] public int receipts_deleted { get; set; }
         [JsonPropertyName("warning")] public string? warning { get; set; }
     }
@@ -125,8 +126,9 @@ public class CleanupIndex
             CleanupResponse resp;
             int blobsDeleted = 0;
             int receiptsDeleted = 0;
+            int imagesDeleted = 0;
             
-            // Delete blobs and receipts for affected ISO codes (only if storage is configured)
+            // Delete blobs, images, and receipts for affected ISO codes (only if storage is configured)
             if (blobContainer != null && receiptContainer != null)
             {
                 foreach (var iso in isoCodesToClean)
@@ -148,21 +150,51 @@ public class CleanupIndex
                         _logger.LogWarning(ex, "Failed to delete blob: {blob}", blobName);
                     }
                     
-                    // Delete the receipt blob from blobreceipts folder
-                    var receiptName = $"blobreceipts/{iso}.docx.receipt";
+                    // Delete images folder for this country (images/{ISO}/)
+                    var imagePrefix = $"images/{iso}/";
                     try
                     {
-                        var receiptClient = receiptContainer.GetBlobClient(receiptName);
-                        var deleteResponse = await receiptClient.DeleteIfExistsAsync();
-                        if (deleteResponse.Value)
+                        await foreach (var blobItem in blobContainer.GetBlobsAsync(prefix: imagePrefix))
                         {
-                            receiptsDeleted++;
-                            _logger.LogInformation("Deleted receipt: {receipt}", receiptName);
+                            var imageBlobClient = blobContainer.GetBlobClient(blobItem.Name);
+                            var deleteResponse = await imageBlobClient.DeleteIfExistsAsync();
+                            if (deleteResponse.Value)
+                            {
+                                imagesDeleted++;
+                                _logger.LogInformation("Deleted image: {image}", blobItem.Name);
+                            }
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to delete receipt: {receipt}", receiptName);
+                        _logger.LogWarning(ex, "Failed to delete images for: {iso}", iso);
+                    }
+                    
+                    // Delete receipt blobs - they're stored in nested folders with dynamic paths
+                    // Pattern: blobreceipts/*/Host.Functions.ProcessDocument/*/legaldocsrag/{ISO}.docx
+                    var targetFileName = $"{iso}.docx";
+                    try
+                    {
+                        // List all blobs in the blobreceipts prefix
+                        var prefix = "blobreceipts/";
+                        await foreach (var blobItem in receiptContainer.GetBlobsAsync(prefix: prefix))
+                        {
+                            // Check if this blob ends with our target file
+                            if (blobItem.Name.EndsWith($"legaldocsrag/{targetFileName}"))
+                            {
+                                var blobClient = receiptContainer.GetBlobClient(blobItem.Name);
+                                var deleteResponse = await blobClient.DeleteIfExistsAsync();
+                                if (deleteResponse.Value)
+                                {
+                                    receiptsDeleted++;
+                                    _logger.LogInformation("Deleted receipt: {receipt}", blobItem.Name);
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to delete receipts for: {file}", targetFileName);
                     }
                 }
             }
@@ -181,11 +213,12 @@ public class CleanupIndex
                 resp = new CleanupResponse
                 {
                     success = true,
-                    message = $"Cleaned up {cleanupType}, deleted {blobsDeleted} blob(s) and {receiptsDeleted} receipt(s)",
+                    message = $"Cleaned up {cleanupType}, deleted {blobsDeleted} blob(s), {imagesDeleted} image(s) and {receiptsDeleted} receipt(s)",
                     deleted_count = succeeded,
                     failed_count = failed,
                     iso_code = isoCode,
                     blobs_deleted = blobsDeleted,
+                    images_deleted = imagesDeleted,
                     receipts_deleted = receiptsDeleted,
                     warning = failed > 0 ? "Some documents failed to delete from index" : null
                 };
@@ -196,11 +229,12 @@ public class CleanupIndex
                 resp = new CleanupResponse
                 {
                     success = true,
-                    message = $"No {cleanupType} found in index, but deleted {blobsDeleted} blob(s) and {receiptsDeleted} receipt(s)",
+                    message = $"No {cleanupType} found in index, but deleted {blobsDeleted} blob(s), {imagesDeleted} image(s) and {receiptsDeleted} receipt(s)",
                     deleted_count = 0,
                     failed_count = 0,
                     iso_code = isoCode,
                     blobs_deleted = blobsDeleted,
+                    images_deleted = imagesDeleted,
                     receipts_deleted = receiptsDeleted
                 };
             }
