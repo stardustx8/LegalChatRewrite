@@ -93,7 +93,7 @@ public class DiagnosticFunction
                 var response2 = searchClient.Search<Dictionary<string, object>>("*", new SearchOptions 
                 { 
                     IncludeTotalCount = true,
-                    Top = 0
+                    Size = 0
                 });
                 
                 searchCheck["index_name"] = indexName;
@@ -109,7 +109,7 @@ public class DiagnosticFunction
                     { 
                         Filter = $"iso_code eq '{iso}'",
                         IncludeTotalCount = true,
-                        Top = 0
+                        Size = 0
                     });
                     isoCounts[iso] = isoResponse.Value.TotalCount ?? 0;
                 }
