@@ -5,7 +5,7 @@ export const environment = {
   adminBase: 'https://fct-euw-legalcb-legaldocprocessor-prod-e6cxa7fbddenexgf.westeurope-01.azurewebsites.net',
   // Enable SSO in production
   aad: {
-    enabled: true,
+    enabled: false,
     tenantId: 'REPLACE_WITH_TENANT_ID',
     clientId: 'REPLACE_WITH_APP_CLIENT_ID',
     redirectUri: '', // defaults to window.location.origin if left empty
