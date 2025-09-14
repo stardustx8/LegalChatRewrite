@@ -19,8 +19,6 @@ interface FileItem {
     <p>Upload .docx files named as "XX.docx" where XX is an uppercase ISO-3166 alpha-2 code (e.g., DE.docx).</p>
   </div>
 
-  <label>Optional passcode: <input [(ngModel)]="passcode" placeholder="admin passcode"/></label>
-
   <div class="upload-dropzone" (drop)="onDrop($event)" (dragover)="$event.preventDefault()" (click)="fileInput.click()">
     <p>Drag and drop .docx files here or click to select.</p>
     <input type="file" #fileInput style="display:none" (change)="onFileSelect($event)" accept=".docx" multiple />
@@ -52,7 +50,6 @@ interface FileItem {
 export class AdminUploadComponent {
   private api = inject(ApiService);
   queue: FileItem[] = [];
-  passcode = '';
   cleanupIso = '';
   cleanupMessage = '';
   cleanupClass = '';
@@ -78,7 +75,7 @@ export class AdminUploadComponent {
       const reader = new FileReader();
       reader.onload = () => {
         const base64 = (reader.result as string).split(',')[1] || '';
-        this.api.uploadBlob(file.name, base64, 'legaldocsrag', this.passcode).subscribe({
+        this.api.uploadBlob(file.name, base64, 'legaldocsrag').subscribe({
           next: (res: any) => {
             if (res && 'message' in res && res.message?.startsWith('File')) {
               item.status = 'success';

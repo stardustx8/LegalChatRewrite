@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
@@ -32,13 +32,9 @@ export class ApiService {
     return this.http.post<AskResponse>(url, { question });
   }
 
-  uploadBlob(filename: string, base64: string, container = 'legaldocsrag', passcode?: string): Observable<{ message: string; iso_code: string } | { success: false; message: string }> {
+  uploadBlob(filename: string, base64: string, container = 'legaldocsrag'): Observable<{ message: string; iso_code: string } | { success: false; message: string }> {
     const url = this.base + '/api/upload_blob';
-    let headers = new HttpHeaders();
-    if (passcode) {
-      headers = headers.set('x-legal-admin-passcode', passcode);
-    }
-    return this.http.post<{ message: string; iso_code: string } | { success: false; message: string }>(url, { filename, file_data: base64, container, passcode }, { headers });
+    return this.http.post<{ message: string; iso_code: string } | { success: false; message: string }>(url, { filename, file_data: base64, container });
   }
 
   cleanupIndex(isoCode: string | 'ALL'): Observable<CleanupResponse> {
