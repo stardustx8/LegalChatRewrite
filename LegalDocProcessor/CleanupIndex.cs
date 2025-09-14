@@ -172,15 +172,15 @@ public class CleanupIndex
                     
                     // Delete receipt blobs - they're stored in nested folders with dynamic paths
                     // Pattern: blobreceipts/*/Host.Functions.ProcessDocument/*/legaldocsrag/{ISO}.docx
-                    var targetFileName = $"{iso}.docx";
+                    // Also: blobreceipts/*/Host.Functions.ProcessDocument/*/legaldocsrag/images/{ISO}/*
                     try
                     {
                         // List all blobs in the blobreceipts prefix
                         var prefix = "blobreceipts/";
                         await foreach (var blobItem in receiptContainer.GetBlobsAsync(prefix: prefix))
                         {
-                            // Check if this blob ends with our target file
-                            if (blobItem.Name.EndsWith($"legaldocsrag/{targetFileName}"))
+                            // Check for main document receipts
+                            if (blobItem.Name.EndsWith($"legaldocsrag/{iso}.docx"))
                             {
                                 var blobClient = receiptContainer.GetBlobClient(blobItem.Name);
                                 var deleteResponse = await blobClient.DeleteIfExistsAsync();
@@ -190,11 +190,22 @@ public class CleanupIndex
                                     _logger.LogInformation("Deleted receipt: {receipt}", blobItem.Name);
                                 }
                             }
+                            // Check for image receipts in images/{ISO}/ folder
+                            else if (blobItem.Name.Contains($"legaldocsrag/images/{iso}/"))
+                            {
+                                var blobClient = receiptContainer.GetBlobClient(blobItem.Name);
+                                var deleteResponse = await blobClient.DeleteIfExistsAsync();
+                                if (deleteResponse.Value)
+                                {
+                                    receiptsDeleted++;
+                                    _logger.LogInformation("Deleted image receipt: {receipt}", blobItem.Name);
+                                }
+                            }
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to delete receipts for: {file}", targetFileName);
+                        _logger.LogWarning(ex, "Failed to delete receipts for: {iso}", iso);
                     }
                 }
             }
