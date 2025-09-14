@@ -37,7 +37,7 @@ jobs:
         uses: Azure/functions-action@v1
         id: fa
         with:
-          app-name: 'fct-euw-legalcb-legaldocprocessor-prod'
+          app-name: 'fct-euw-legalcb-legaldocprocessor-prod-e6cxa7fbddenexgf'
           slot-name: 'Production'
           package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/publish_output'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_CD123EC34FBD478D84FEF0801381E2B2 }}
