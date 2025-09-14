@@ -60,7 +60,7 @@ public class AskFunction
 
     [Function("AskFunction")]
     public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "ask")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "api/ask")] HttpRequestData req)
     {
         _logger.LogInformation("API function invoked.");
 
