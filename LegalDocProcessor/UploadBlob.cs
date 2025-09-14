@@ -97,7 +97,10 @@ public class UploadBlob
             }
 
             var blobService = new BlobServiceClient(conn);
-            var blobClient = blobService.GetBlobContainerClient(container).GetBlobClient(filename);
+            // Ensure container exists
+            var containerClient = blobService.GetBlobContainerClient(container);
+            await containerClient.CreateIfNotExistsAsync();
+            var blobClient = containerClient.GetBlobClient(filename);
             using (var ms = new MemoryStream(bytes))
             {
                 await blobClient.UploadAsync(ms, overwrite: true);
