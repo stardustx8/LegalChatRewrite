@@ -64,13 +64,14 @@ public class CleanupIndex
             var searchEndpoint = Environment.GetEnvironmentVariable("KNIFE_SEARCH_ENDPOINT");
             var searchKey = Environment.GetEnvironmentVariable("KNIFE_SEARCH_KEY");
             var indexName = Environment.GetEnvironmentVariable("KNIFE_SEARCH_INDEX");
-            var storageConn = Environment.GetEnvironmentVariable("LEGAL_STORAGE_CONNECTION");
+            var storageConn = Environment.GetEnvironmentVariable("LEGAL_STORAGE_CONNECTION") 
+                             ?? Environment.GetEnvironmentVariable("KNIFE_STORAGE_CONNECTION");
 
             var missing = new List<string>();
             if (string.IsNullOrWhiteSpace(searchEndpoint)) missing.Add("KNIFE_SEARCH_ENDPOINT");
             if (string.IsNullOrWhiteSpace(searchKey)) missing.Add("KNIFE_SEARCH_KEY");
             if (string.IsNullOrWhiteSpace(indexName)) missing.Add("KNIFE_SEARCH_INDEX");
-            if (string.IsNullOrWhiteSpace(storageConn)) missing.Add("LEGAL_STORAGE_CONNECTION");
+            // Storage connection is optional - cleanup will still work for index-only deletion
             if (missing.Count > 0)
             {
                 var error = $"Missing required environment variables: {string.Join(", ", missing)}";
@@ -79,9 +80,16 @@ public class CleanupIndex
             }
 
             var client = new SearchClient(new Uri(searchEndpoint!), indexName!, new AzureKeyCredential(searchKey!));
-            var blobServiceClient = new BlobServiceClient(storageConn);
-            var blobContainer = blobServiceClient.GetBlobContainerClient("legaldocsrag");
-            var receiptContainer = blobServiceClient.GetBlobContainerClient("blob-receipts");
+            BlobServiceClient? blobServiceClient = null;
+            BlobContainerClient? blobContainer = null;
+            BlobContainerClient? receiptContainer = null;
+            
+            if (!string.IsNullOrWhiteSpace(storageConn))
+            {
+                blobServiceClient = new BlobServiceClient(storageConn);
+                blobContainer = blobServiceClient.GetBlobContainerClient("legaldocsrag");
+                receiptContainer = blobServiceClient.GetBlobContainerClient("azure-webjobs-hosts");
+            }
 
             List<Dictionary<string, string>> docsToDelete;
             string cleanupType;
@@ -118,42 +126,49 @@ public class CleanupIndex
             int blobsDeleted = 0;
             int receiptsDeleted = 0;
             
-            // Delete blobs and receipts for affected ISO codes
-            foreach (var iso in isoCodesToClean)
+            // Delete blobs and receipts for affected ISO codes (only if storage is configured)
+            if (blobContainer != null && receiptContainer != null)
             {
-                // Delete the main blob (XX.docx)
-                var blobName = $"{iso}.docx";
-                try
+                foreach (var iso in isoCodesToClean)
                 {
-                    var blobClient = blobContainer.GetBlobClient(blobName);
-                    var deleteResponse = await blobClient.DeleteIfExistsAsync();
-                    if (deleteResponse.Value)
+                    // Delete the main blob (XX.docx)
+                    var blobName = $"{iso}.docx";
+                    try
                     {
-                        blobsDeleted++;
-                        _logger.LogInformation("Deleted blob: {blob}", blobName);
+                        var blobClient = blobContainer.GetBlobClient(blobName);
+                        var deleteResponse = await blobClient.DeleteIfExistsAsync();
+                        if (deleteResponse.Value)
+                        {
+                            blobsDeleted++;
+                            _logger.LogInformation("Deleted blob: {blob}", blobName);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to delete blob: {blob}", blobName);
+                    }
+                    
+                    // Delete the receipt blob from blobreceipts folder
+                    var receiptName = $"blobreceipts/{iso}.docx.receipt";
+                    try
+                    {
+                        var receiptClient = receiptContainer.GetBlobClient(receiptName);
+                        var deleteResponse = await receiptClient.DeleteIfExistsAsync();
+                        if (deleteResponse.Value)
+                        {
+                            receiptsDeleted++;
+                            _logger.LogInformation("Deleted receipt: {receipt}", receiptName);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to delete receipt: {receipt}", receiptName);
                     }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to delete blob: {blob}", blobName);
-                }
-                
-                // Delete the receipt blob (XX.docx.receipt)
-                var receiptName = $"{iso}.docx.receipt";
-                try
-                {
-                    var receiptClient = receiptContainer.GetBlobClient(receiptName);
-                    var deleteResponse = await receiptClient.DeleteIfExistsAsync();
-                    if (deleteResponse.Value)
-                    {
-                        receiptsDeleted++;
-                        _logger.LogInformation("Deleted receipt: {receipt}", receiptName);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to delete receipt: {receipt}", receiptName);
-                }
+            }
+            else
+            {
+                _logger.LogWarning("Storage connection not configured - skipping blob deletion");
             }
             
             if (docsToDelete.Count > 0)

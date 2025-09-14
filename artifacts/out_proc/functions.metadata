@@ -27,6 +27,34 @@
     ]
   },
   {
+    "name": "Diagnostic",
+    "scriptFile": "LegalDocProcessor.dll",
+    "entryPoint": "LegalDocProcessor.DiagnosticFunction.Run",
+    "language": "dotnet-isolated",
+    "properties": {
+      "IsCodeless": false
+    },
+    "bindings": [
+      {
+        "name": "req",
+        "direction": "In",
+        "type": "httpTrigger",
+        "authLevel": "Anonymous",
+        "methods": [
+          "get",
+          "post"
+        ],
+        "route": "diagnostic",
+        "properties": {}
+      },
+      {
+        "name": "$return",
+        "type": "http",
+        "direction": "Out"
+      }
+    ]
+  },
+  {
     "name": "ProcessDocument",
     "scriptFile": "LegalDocProcessor.dll",
     "entryPoint": "LegalDocProcessor.ProcessDocument.Run",
