@@ -1,6 +1,7 @@
 export const environment = {
   // Local Azure Functions host (adjust if your port differs)
-  baseUrl: 'http://localhost:7071',
+  // Use proxy for API calls during local development
+  baseUrl: '',
   // Optional alternate base for admin endpoints (upload/cleanup). If empty, falls back to baseUrl.
   adminBase: '',
   // Azure AD SSO configuration (development)
