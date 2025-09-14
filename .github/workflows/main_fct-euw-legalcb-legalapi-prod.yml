@@ -32,12 +32,11 @@ jobs:
         working-directory: frontend
         run: npm install
       
-      - name: Build Angular (script or CLI)
+      - name: Build Angular (production)
         working-directory: frontend
         shell: pwsh
         run: |
-          # Try package.json script first; if missing, fall back to CLI
-          try { npm run build } catch { npx @angular/cli@18 build --configuration production }
+          npx @angular/cli@18 build --configuration production
       
       - name: Copy Angular dist into Functions wwwroot/app
         shell: pwsh

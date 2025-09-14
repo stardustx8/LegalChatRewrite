@@ -5,6 +5,8 @@ import { DomSanitizer } from '@angular/platform-browser';
 import { ApiService, AskResponse } from '../../services/api.service';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import { AuthService } from '../../services/auth.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-ask',
@@ -16,8 +18,16 @@ import DOMPurify from 'dompurify';
     <p class="query-status-text">{{statusText}}</p>
   </section>
 
-  <textarea [(ngModel)]="question" placeholder="Ask about knife rules…" aria-label="Question"></textarea>
-  <button (click)="onAsk()" [disabled]="loading">Ask!</button>
+  <ng-container *ngIf="!aadEnabled || loggedIn; else signInBlock">
+    <textarea [(ngModel)]="question" placeholder="Ask about knife rules…" aria-label="Question"></textarea>
+    <button (click)="onAsk()" [disabled]="loading">Ask!</button>
+  </ng-container>
+  <ng-template #signInBlock>
+    <div class="signin-card">
+      <p>Please sign in with your corporate account to use this app.</p>
+      <button (click)="login()">Sign in</button>
+    </div>
+  </ng-template>
 
   <div id="country-header-container" *ngIf="countryHeaderHtml" [innerHTML]="countryHeaderHtml"></div>
 
@@ -41,11 +51,14 @@ import DOMPurify from 'dompurify';
 export class AskComponent {
   private api = inject(ApiService);
   private sanitizer = inject(DomSanitizer);
+  auth = inject(AuthService);
 
   question = '';
   loading = false;
   progress = 0;
   statusText = '';
+  aadEnabled = !!environment.aad?.enabled;
+  loggedIn = false;
 
   response?: AskResponse;
   countryHeaderHtml: any;
@@ -58,6 +71,7 @@ export class AskComponent {
 
   onAsk() {
     if (!this.question?.trim()) return;
+    if (this.aadEnabled && !this.loggedIn) { this.login(); return; }
     this.loading = true;
     this.setProgress(10, 'Identifying countries in user query…');
     this.api.ask(this.question).subscribe({
@@ -76,6 +90,16 @@ export class AskComponent {
         this.setProgress(0, 'Error occurred.');
       }
     });
+  }
+
+  login() {
+    this.auth.login();
+  }
+
+  constructor() {
+    if (this.aadEnabled) {
+      this.auth.state$.subscribe(st => this.loggedIn = !!st.account);
+    }
   }
 
   // minimal markdown rendering using marked if present; otherwise basic replacements

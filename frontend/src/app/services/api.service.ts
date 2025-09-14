@@ -25,6 +25,7 @@ export interface CleanupResponse {
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private base = environment.baseUrl || '';
+  private adminBase = (environment as any).adminBase || this.base;
   constructor(private http: HttpClient) {}
 
   ask(question: string): Observable<AskResponse> {
@@ -33,12 +34,12 @@ export class ApiService {
   }
 
   uploadBlob(filename: string, base64: string, container = 'legaldocsrag'): Observable<{ message: string; iso_code: string } | { success: false; message: string }> {
-    const url = this.base + '/api/upload_blob';
+    const url = this.adminBase + '/api/upload_blob';
     return this.http.post<{ message: string; iso_code: string } | { success: false; message: string }>(url, { filename, file_data: base64, container });
   }
 
   cleanupIndex(isoCode: string | 'ALL'): Observable<CleanupResponse> {
-    const url = this.base + '/api/cleanup_index';
+    const url = this.adminBase + '/api/cleanup_index';
     return this.http.post<CleanupResponse>(url, { iso_code: isoCode });
   }
 }
