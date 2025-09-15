@@ -10,12 +10,12 @@
         "allowedOrigins": [
           "http://localhost:4200",
           "https://localhost:4200",
-          "*"
+          "https://fct-euw-legalcb-legalapi-prod-a5hha6b3fjhjbbhe.westeurope-01.azurewebsites.net"
         ],
         "allowedMethods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allowedHeaders": ["*"],
         "exposedHeaders": ["*"],
-        "supportCredentials": true
+        "supportCredentials": false
       }
     }
   }
