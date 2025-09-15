@@ -43,7 +43,7 @@ interface FileItem {
             <span class="file-item-status" [ngClass]="item.status">
               <ng-container [ngSwitch]="item.status">
                 <span *ngSwitchCase="'success'">✓ Uploaded</span>
-                <span *ngSwitchCase="'error'">❌ Failed</span>
+                <span *ngSwitchCase="'error'" [title]="item.message || 'Upload failed'">❌ Failed</span>
                 <span *ngSwitchCase="'uploading'">Uploading...</span>
                 <span *ngSwitchDefault>Ready</span>
               </ng-container>
@@ -460,7 +460,9 @@ export class AdminUploadComponent implements OnInit {
         },
         error: (err) => {
           item.status = 'error';
-          item.message = err?.error?.message || 'Upload failed';
+          item.message = err?.error?.message || err?.message || 'Upload failed';
+          // Remove from pending so upload button can be used again
+          this.pendingFiles = this.pendingFiles.filter(f => f !== item);
         }
       });
     });
