@@ -36,6 +36,7 @@ export class ApiService {
   uploadBlob(filename: string, base64: string, container = 'legaldocsrag'): Observable<{ message: string; iso_code: string } | { success: false; message: string }> {
     const url = this.adminBase + '/api/upload_blob';
     const body: any = { filename, file_data: base64, container };
+    console.log('Upload request:', { url, filename, container, dataSize: base64.length });
     return this.http.post<{ message: string; iso_code: string } | { success: false; message: string }>(url, body);
   }
 

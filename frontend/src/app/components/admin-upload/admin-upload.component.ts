@@ -460,7 +460,28 @@ export class AdminUploadComponent implements OnInit {
         },
         error: (err) => {
           item.status = 'error';
-          item.message = err?.error?.message || err?.message || 'Upload failed';
+          console.error('Upload error:', err);
+          
+          // Extract meaningful error message
+          let errorMsg = 'Upload failed';
+          if (err.status === 0) {
+            errorMsg = 'Network/CORS error - cannot reach server';
+          } else if (err.error?.message) {
+            errorMsg = err.error.message;
+          } else if (err.message) {
+            errorMsg = err.message;
+          } else if (err.statusText) {
+            errorMsg = `${err.status}: ${err.statusText}`;
+          }
+          
+          item.message = errorMsg;
+          console.log('Error details:', {
+            status: err.status,
+            statusText: err.statusText,
+            url: err.url,
+            error: err.error
+          });
+          
           // Remove from pending so upload button can be used again
           this.pendingFiles = this.pendingFiles.filter(f => f !== item);
         }
