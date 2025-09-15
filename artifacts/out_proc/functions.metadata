@@ -90,7 +90,8 @@
         "type": "httpTrigger",
         "authLevel": "Anonymous",
         "methods": [
-          "post"
+          "post",
+          "options"
         ],
         "route": "upload_blob",
         "properties": {}

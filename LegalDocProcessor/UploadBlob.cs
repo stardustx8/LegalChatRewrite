@@ -26,9 +26,20 @@ public class UploadBlob
 
     [Function("UploadBlob")]
     public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "upload_blob")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", "options", Route = "upload_blob")] HttpRequestData req)
     {
         _logger.LogInformation("Upload blob function processed a request.");
+        
+        // Handle OPTIONS preflight request
+        if (req.Method.Equals("OPTIONS", StringComparison.OrdinalIgnoreCase))
+        {
+            var response = req.CreateResponse(HttpStatusCode.OK);
+            response.Headers.Add("Access-Control-Allow-Origin", "https://fct-euw-legalcb-legalapi-prod-a5hha6b3fjhjbbhe.westeurope-01.azurewebsites.net");
+            response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+            response.Headers.Add("Access-Control-Allow-Headers", "*");
+            return response;
+        }
+        
         try
         {
             string bodyText;
@@ -107,6 +118,9 @@ public class UploadBlob
     {
         var res = req.CreateResponse(code);
         res.Headers.Add("Content-Type", "application/json");
+        res.Headers.Add("Access-Control-Allow-Origin", "https://fct-euw-legalcb-legalapi-prod-a5hha6b3fjhjbbhe.westeurope-01.azurewebsites.net");
+        res.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        res.Headers.Add("Access-Control-Allow-Headers", "*");
         await res.WriteStringAsync(JsonSerializer.Serialize(obj, JsonOptions));
         return res;
     }
