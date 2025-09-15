@@ -55,7 +55,7 @@ public class ProcessDocument
 
     [Function("ProcessDocument")]
     public async Task Run([
-        BlobTrigger("legaldocsrag/{name}", Connection = "KNIFE_STORAGE_CONNECTION_STRING")
+        BlobTrigger("legaldocsrag/{name}", Connection = "AzureWebJobsStorage")
     ] Stream myBlob, string name)
     {
         _logger.LogInformation("Python blob trigger function processed blob");
