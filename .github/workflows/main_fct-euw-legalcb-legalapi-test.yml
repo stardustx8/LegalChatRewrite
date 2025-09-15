@@ -32,7 +32,7 @@ jobs:
         working-directory: frontend
         run: |
           npm ci
-          npm run build:test || npx ng build --configuration test
+          npm run build:test || npx ng build --configuration test --base-href /app/
       
       - name: Copy Angular dist into Functions wwwroot/app
         shell: pwsh

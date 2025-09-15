@@ -9,7 +9,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "start:test": "ng serve --configuration test",
-    "build:test": "ng build --configuration test"
+    "build:test": "ng build --configuration test --base-href /app/"
   },
   "dependencies": {
     "@angular/animations": "^18.2.0",
