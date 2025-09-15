@@ -55,7 +55,7 @@ interface FileItem {
           <button class="btn-primary" (click)="uploadFiles()" [disabled]="!canUpload()">
             Upload {{ pendingFiles.length }} file{{ pendingFiles.length === 1 ? '' : 's' }}
           </button>
-          <button class="btn-link" (click)="clearQueue()" [disabled]="queue.some(f => f.status === 'uploading')">Clear</button>
+          <button class="btn-link" (click)="clearQueue()" [disabled]="isUploading()">Clear</button>
           <span class="hint" *ngIf="pendingFiles.length && !canUpload()">Preparing files...</span>
         </div>
       </div>
@@ -362,12 +362,16 @@ export class AdminUploadComponent implements OnInit {
   canUpload(): boolean {
     // Enable only when all pending files finished reading and nothing is uploading
     if (!this.pendingFiles.length) return false;
-    if (this.queue.some(f => f.status === 'uploading')) return false;
+    if (this.isUploading()) return false;
     return this.pendingFiles.every(f => !!f.base64 && f.status === 'idle');
   }
 
+  isUploading(): boolean {
+    return this.queue.some(f => f.status === 'uploading');
+  }
+
   clearQueue() {
-    if (this.queue.some(f => f.status === 'uploading')) return;
+    if (this.isUploading()) return;
     this.queue = [];
     this.pendingFiles = [];
   }
