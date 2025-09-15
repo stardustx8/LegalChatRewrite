@@ -1,7 +1,7 @@
 [
   {
     "context": ["/api/ask"],
-    "target": "https://fct-euw-legalcb-legalapi-test-xxxx.westeurope-01.azurewebsites.net",
+    "target": "https://fct-euw-legalcb-legalapi-test-ash3dxcuc3bcgvah.westeurope-01.azurewebsites.net",
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug"
@@ -15,7 +15,7 @@
       "/api/forgot_password",
       "/api/save_recovery_email"
     ],
-    "target": "https://fct-euw-legalcb-legaldocprocessor-test-xxxx.westeurope-01.azurewebsites.net",
+    "target": "https://fct-euw-legalcb-legaldocprocessor-test-g7gkg5gwd4geepet.westeurope-01.azurewebsites.net",
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug"
