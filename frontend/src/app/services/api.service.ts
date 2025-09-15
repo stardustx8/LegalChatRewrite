@@ -35,11 +35,13 @@ export class ApiService {
 
   uploadBlob(filename: string, base64: string, container = 'legaldocsrag'): Observable<{ message: string; iso_code: string } | { success: false; message: string }> {
     const url = this.adminBase + '/api/upload_blob';
-    return this.http.post<{ message: string; iso_code: string } | { success: false; message: string }>(url, { filename, file_data: base64, container });
+    const body: any = { filename, file_data: base64, container };
+    return this.http.post<{ message: string; iso_code: string } | { success: false; message: string }>(url, body);
   }
 
   cleanupIndex(isoCode: string | 'ALL'): Observable<CleanupResponse> {
     const url = this.adminBase + '/api/cleanup_index';
-    return this.http.post<CleanupResponse>(url, { iso_code: isoCode });
+    const body: any = { iso_code: isoCode };
+    return this.http.post<CleanupResponse>(url, body);
   }
 }

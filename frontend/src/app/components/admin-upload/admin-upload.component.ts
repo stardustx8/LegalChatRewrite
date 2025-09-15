@@ -50,6 +50,14 @@ interface FileItem {
             </span>
           </div>
         </div>
+
+        <div class="upload-actions" *ngIf="queue.length">
+          <button class="btn-primary" (click)="uploadFiles()" [disabled]="!canUpload()">
+            Upload {{ pendingFiles.length }} file{{ pendingFiles.length === 1 ? '' : 's' }}
+          </button>
+          <button class="btn-link" (click)="clearQueue()" [disabled]="queue.some(f => f.status === 'uploading')">Clear</button>
+          <span class="hint" *ngIf="pendingFiles.length && !canUpload()">Preparing files...</span>
+        </div>
       </div>
 
       <div class="cleanup-section">
@@ -165,6 +173,20 @@ interface FileItem {
       max-height: 200px;
       overflow-y: auto;
     }
+    .upload-actions {
+      margin-top: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .btn-link {
+      background: transparent;
+      border: none;
+      color: var(--color-grey-600);
+      cursor: pointer;
+    }
+    .btn-link:hover { text-decoration: underline; color: var(--color-grey-800); }
+    .hint { color: var(--muted); font-size: 0.9rem; }
     
     .file-item {
       display: flex;
@@ -257,28 +279,18 @@ export class AdminUploadComponent implements OnInit {
   private api = inject(ApiService);
   private router = inject(Router);
   
-  // Auth
-  authenticated = false;
-  passcode = '';
-  passcodeError = '';
-  
   // Upload
   queue: FileItem[] = [];
   pendingFiles: FileItem[] = [];
   dragOver = false;
+  
   
   // Cleanup
   cleanupIso = '';
   cleanupMessage = '';
   cleanupClass = '';
   
-  ngOnInit() {
-    // Check if already authenticated in session
-    const stored = sessionStorage.getItem('legal_admin_passcode');
-    if (stored) {
-      this.authenticated = true;
-    }
-  }
+  ngOnInit() {}
   
   onCleanup() {
     if (!this.cleanupIso?.trim()) return;
@@ -346,6 +358,19 @@ export class AdminUploadComponent implements OnInit {
       });
     });
   }
+
+  canUpload(): boolean {
+    // Enable only when all pending files finished reading and nothing is uploading
+    if (!this.pendingFiles.length) return false;
+    if (this.queue.some(f => f.status === 'uploading')) return false;
+    return this.pendingFiles.every(f => !!f.base64 && f.status === 'idle');
+  }
+
+  clearQueue() {
+    if (this.queue.some(f => f.status === 'uploading')) return;
+    this.queue = [];
+    this.pendingFiles = [];
+  }
   
   private showBatchResult(success: number, failed: string[], total: number) {
     if (failed.length === 0) {
@@ -365,22 +390,6 @@ export class AdminUploadComponent implements OnInit {
     this.router.navigate(['/ask']);
   }
   
-  verifyPasscode() {
-    if (!this.passcode) {
-      this.passcodeError = 'Please enter a passcode';
-      return;
-    }
-    
-    // For now, simple check - in production this should verify with backend
-    if (this.passcode === 'admin123' || this.passcode === 'legal') {
-      this.authenticated = true;
-      sessionStorage.setItem('legal_admin_passcode', this.passcode);
-      this.passcodeError = '';
-    } else {
-      this.passcodeError = 'Invalid passcode';
-      this.passcode = '';
-    }
-  }
   
   onFileSelect(ev: Event) {
     const input = ev.target as HTMLInputElement;
@@ -428,7 +437,9 @@ export class AdminUploadComponent implements OnInit {
     });
   }
   
+  
   uploadFiles() {
+    if (!this.canUpload()) return;
     const countries = this.pendingFiles.map(f => f.name.replace('.docx', '').toUpperCase());
     const msg = `Warning: This will OVERWRITE existing content for:\n\n${countries.join(', ')}\n\nChanges may take ~15 minutes to propagate. Continue?`;
     if (!confirm(msg)) return;

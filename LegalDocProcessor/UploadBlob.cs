@@ -43,24 +43,7 @@ public class UploadBlob
 
             var body = JsonSerializer.Deserialize<Dictionary<string, object>>(bodyText) ?? new();
 
-            // Optional passcode gate
-            var expectedPass = (Environment.GetEnvironmentVariable("LEGAL_UPLOAD_PASSWORD") ?? string.Empty).Trim();
-            if (!string.IsNullOrEmpty(expectedPass))
-            {
-                var provided = string.Empty;
-                if (req.Headers.TryGetValues("x-legal-admin-passcode", out var headerVals))
-                {
-                    provided = headerVals.FirstOrDefault() ?? string.Empty;
-                }
-                if (string.IsNullOrEmpty(provided) && body.TryGetValue("passcode", out var passEl))
-                {
-                    provided = passEl?.ToString() ?? string.Empty;
-                }
-                if (!string.Equals(provided.Trim(), expectedPass, StringComparison.Ordinal))
-                {
-                    return await WriteJson(req, HttpStatusCode.Unauthorized, new { success = false, message = "Unauthorized: invalid passcode" });
-                }
-            }
+            // Passcode gate removed (no authentication required here)
 
             // Extract fields
             var filename = body.TryGetValue("filename", out var fnEl) ? fnEl?.ToString() : null;
@@ -78,8 +61,10 @@ public class UploadBlob
                 return await WriteJson(req, HttpStatusCode.BadRequest, new { success = false, message = $"Invalid filename format. Expected: XX.docx (e.g., DE.docx), got: {filename}" });
             }
 
-            // Storage connection
-            var conn = Environment.GetEnvironmentVariable("KNIFE_STORAGE_CONNECTION_STRING");
+            // Storage connection (support multiple variable names)
+            var conn = Environment.GetEnvironmentVariable("LEGAL_STORAGE_CONNECTION")
+                      ?? Environment.GetEnvironmentVariable("KNIFE_STORAGE_CONNECTION")
+                      ?? Environment.GetEnvironmentVariable("KNIFE_STORAGE_CONNECTION_STRING");
             if (string.IsNullOrWhiteSpace(conn))
             {
                 return await WriteJson(req, HttpStatusCode.InternalServerError, new { success = false, message = "Storage connection string not configured" });
