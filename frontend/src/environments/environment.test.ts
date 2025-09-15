@@ -7,7 +7,8 @@ export const environment = {
   // If admin APIs (upload/cleanup) are hosted on a separate Function App (LegalDocProcessor),
   // set the full URL here for the test environment; otherwise leave empty to fall back to baseUrl.
   // Example: 'https://fct-euw-legalcb-legaldocprocessor-test-xxxx.westeurope-01.azurewebsites.net'
-  adminBase: '',
+  // Test LegalDocProcessor host:
+  adminBase: 'https://fct-euw-legalcb-legaldocprocessor-test-g7gkg5gwd4geepet.westeurope-01.azurewebsites.net',
 
   // Azure AD SSO (optional in test); keep secrets out of source control
   aad: {

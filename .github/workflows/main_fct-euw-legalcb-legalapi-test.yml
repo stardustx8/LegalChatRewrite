@@ -28,11 +28,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: 'frontend/package-lock.json'
       
-      - name: Build Angular
+      - name: Build Angular (test configuration)
         working-directory: frontend
         run: |
           npm ci
-          npm run build || npx ng build --configuration production
+          npm run build:test || npx ng build --configuration test
       
       - name: Copy Angular dist into Functions wwwroot/app
         shell: pwsh
