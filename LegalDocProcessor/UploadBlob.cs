@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Text;
+using System.Linq;
 using Azure.Storage.Blobs;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
@@ -34,7 +35,9 @@ public class UploadBlob
         if (req.Method.Equals("OPTIONS", StringComparison.OrdinalIgnoreCase))
         {
             var response = req.CreateResponse(HttpStatusCode.OK);
-            response.Headers.Add("Access-Control-Allow-Origin", "https://fct-euw-legalcb-legalapi-prod-a5hha6b3fjhjbbhe.westeurope-01.azurewebsites.net");
+            var allowOrigin = ResolveAllowedOrigin(req);
+            response.Headers.Add("Access-Control-Allow-Origin", allowOrigin);
+            response.Headers.Add("Vary", "Origin");
             response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
             response.Headers.Add("Access-Control-Allow-Headers", "*");
             return response;
@@ -118,10 +121,48 @@ public class UploadBlob
     {
         var res = req.CreateResponse(code);
         res.Headers.Add("Content-Type", "application/json");
-        res.Headers.Add("Access-Control-Allow-Origin", "https://fct-euw-legalcb-legalapi-prod-a5hha6b3fjhjbbhe.westeurope-01.azurewebsites.net");
+        var allowOrigin = ResolveAllowedOrigin(req);
+        res.Headers.Add("Access-Control-Allow-Origin", allowOrigin);
+        res.Headers.Add("Vary", "Origin");
         res.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         res.Headers.Add("Access-Control-Allow-Headers", "*");
         await res.WriteStringAsync(JsonSerializer.Serialize(obj, JsonOptions));
         return res;
+    }
+
+    private static string ResolveAllowedOrigin(HttpRequestData req)
+    {
+        var allowed = GetAllowedOrigins();
+        string? origin = null;
+        try
+        {
+            if (req.Headers.TryGetValues("Origin", out var values))
+            {
+                origin = values?.FirstOrDefault();
+            }
+        }
+        catch { /* ignore */ }
+
+        if (!string.IsNullOrWhiteSpace(origin) && allowed.Any(a => string.Equals(a, origin, StringComparison.OrdinalIgnoreCase)))
+        {
+            return origin!;
+        }
+        return allowed.FirstOrDefault() ?? "*";
+    }
+
+    private static List<string> GetAllowedOrigins()
+    {
+        var list = new List<string>();
+        var env = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
+        if (!string.IsNullOrWhiteSpace(env))
+        {
+            list.AddRange(env.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        }
+        else
+        {
+            // Back-compat default (prod UI origin)
+            list.Add("https://fct-euw-legalcb-legalapi-prod-a5hha6b3fjhjbbhe.westeurope-01.azurewebsites.net");
+        }
+        return list;
     }
 }
