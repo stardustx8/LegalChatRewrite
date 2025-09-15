@@ -58,6 +58,17 @@ jobs:
           dotnet publish --configuration Release --output ./publish_output
           popd
 
+      - name: Copy Angular dist into publish output (app/)
+        shell: pwsh
+        run: |
+          $distRoot = Get-ChildItem -Path frontend/dist -Directory | Select-Object -First 1
+          if (-not $distRoot) { throw "Angular dist folder not found under frontend/dist" }
+          $browser = Join-Path $distRoot.FullName 'browser'
+          $source = $distRoot.FullName
+          if (Test-Path $browser) { $source = $browser }
+          New-Item -ItemType Directory -Force -Path "LegalApi/publish_output/app" | Out-Null
+          Copy-Item -Recurse -Force -Path "$source/*" -Destination "LegalApi/publish_output/app"
+
       - name: 'Resolve Project Dependencies Using Dotnet'
         shell: pwsh
         run: |
